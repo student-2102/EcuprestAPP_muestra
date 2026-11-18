@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+
+{% block contenido %}
+<div class="p-6 sm:p-10">
+  <h1 class="text-2xl font-bold text-gray-800 mb-6">Clientes</h1>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  {% for category, message in messages %}
+  <div class="alert alert-{{ category }} alert-dismissible fade show mt-3" role="alert"
+    id="flashMessage{{ loop.index }}">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% endwith %}
+
+  <!-- Filtro -->
+  <div class="mb-6">
+    <label for="busquedaCuenta" class="block text-sm font-medium text-gray-700 mb-1">Buscar por número de
+      contrato:</label>
+    <input type="text" id="busquedaCuenta" placeholder="Escribe aquí..."
+      class="border border-gray-300 rounded-md px-4 py-2 w-full focus:outline-none focus:ring focus:border-blue-400">
+  </div>
+
+  <!-- Tabla -->
+  <div class="bg-white rounded-xl shadow-md p-4">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-600">Nombre</th>
+            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-600">Cédula</th>
+            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-600">Correo</th>
+            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-600">Contrato</th>
+            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-600">Cuenta</th>
+            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-600">Documentos</th>
+            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-600 text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tablaClientes" class="bg-white divide-y divide-gray-100">
+          {% for cliente in clientes %}
+          <tr class="hover:bg-gray-50 transition">
+            <td class="px-6 py-4 text-sm text-gray-800">{{ cliente.name }}</td>
+            <td class="px-6 py-4 text-sm text-gray-800">{{ cliente.cedula }}</td>
+            <td class="px-6 py-4 text-sm text-gray-800">{{ cliente.correo }}</td>
+            <td class="px-6 py-4 text-sm text-gray-800">{{ cliente.contrato }}</td>
+            <td class="px-6 py-4 text-sm text-gray-800">{{ cliente.numero_cuenta }}</td>
+            <td class="px-6 py-4 text-center">
+              <a href="{{ url_for('ver_documento', cliente_id=cliente.id) }}"
+                class="inline-block text-white bg-blue-600 hover:bg-blue-700 font-medium rounded-md text-sm px-4 py-2 transition duration-200">
+                Ver documentos
+              </a>
+            </td>
+            <td class="px-6 py-4 text-center">
+              <div class="flex flex-wrap justify-center gap-2">
+                <!-- Pagar Deuda -->
+                
+                <button
+                  id="btnPagarDeuda-{{ cliente.id }}"
+                  onclick="abrirModalPago({{ cliente.id }},
+                    {% set deuda_no_finalizada = cliente.deudas|selectattr('finalizado', 'equalto', false)|first %}
+                    {{ deuda_no_finalizada.deuda_total if deuda_no_finalizada else 0 }},
+                    '{{ deuda_no_finalizada.fecha.strftime("%Y-%m-%d") if deuda_no_finalizada else "" }}',
+                    '{{ deuda_no_finalizada.fecha_vencimiento.strftime("%Y-%m-%d") if deuda_no_finalizada else "" }}',
+                    {{ deuda_no_finalizada.pagos_relacion|length if deuda_no_finalizada else 0 }})"
+                  class="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-md shadow-sm transition duration-200">
+                  Pagar Deuda
+                </button>
+
+                <!-- Botón agregar deuda -->
+                <button onclick="abrirModalDeuda({{ cliente.id }})"
+                  class="bg-yellow-600 hover:bg-yellow-700 text-white text-sm px-4 py-2 rounded-md shadow-sm transition duration-200">Agregar
+                  Deuda</button>
+
+                <!-- Editar cliente -->
+                <!-- Reemplaza dentro de la tabla el botón de editar -->
+                <!-- Editar cliente -->
+                <button type="button"
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-md shadow-sm transition duration-200"
+                  data-bs-toggle="modal" data-bs-target="#modalEditarCliente{{ cliente.id }}">
+                  Editar
+                </button>
+
+                <!-- Modal Editar Cliente -->
+                <div class="modal fade" id="modalEditarCliente{{ cliente.id }}" tabindex="-1"
+                  aria-labelledby="modalEditarClienteLabel{{ cliente.id }}" aria-hidden="true">
+                  <div class="modal-dialog">
+                    <form method="POST" action="{{ url_for('editar_cliente', cliente_id=cliente.id) }}"
+                      enctype="multipart/form-data">
+                      <div class="modal-content">
+                        <div class="modal-header">
+                          <h5 class="modal-title" id="modalEditarClienteLabel{{ cliente.id }}">Editar Cliente</h5>
+                          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                          <div class="mb-3">
+                            <label for="name" class="form-label">Nombre</label>
+                            <input type="text" class="form-control" name="name" value="{{ cliente.name }}" required>
+                          </div>
+                          <div class="mb-3">
+                            <label for="cedula" class="form-label">Cédula</label>
+                            <input type="text" class="form-control" name="cedula" value="{{ cliente.cedula }}" required>
+                          </div>
+                          <div class="mb-3">
+                            <label for="archivo" class="form-label">Pdf con cédula y papel de votación</label>
+                            <input type="file" class="form-control" name="archivo" accept="application/pdf">
+                          </div>
+                          <div class="mb-3">
+                            <label for="numero_cuenta" class="form-label">Número de Cuenta</label>
+                            <input type="text" class="form-control" name="numero_cuenta"
+                              value="{{ cliente.numero_cuenta }}" readonly required>
+                          </div>
+                          <div class="mb-3">
+                            <label for="contrato" class="form-label">Número de Contrato</label>
+                            <input type="text" class="form-control" name="contrato" value="{{ cliente.contrato }}"
+                              readonly required>
+                          </div>
+                          <div class="mb-3">
+                            <label for="correo" class="form-label">Correo</label>
+                            <input type="email" class="form-control" name="correo" value="{{ cliente.correo }}"
+                              required>
+                          </div>
+                          <div class="mb-3">
+                            <label for="telefono" class="form-label">Teléfono</label>
+                            <input type="text" class="form-control" name="telefono" value="{{ cliente.telefono }}">
+                          </div>
+
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+                <!-- Eliminar cliente -->
+                <a href="{{ url_for('eliminar_cliente', cliente_id=cliente.id) }}"
+                  class="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-md shadow-sm transition duration-200"
+                  onclick="return confirm('¿Estás seguro de eliminar este cliente?')">Eliminar</a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para Agregar Deuda -->
+<div id="modalDeuda" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+    <h2 class="text-lg font-bold mb-4">Agregar Deuda</h2>
+    <form method="POST" action="{{ url_for('agregar_deuda') }}">
+      <input type="hidden" name="cliente_id" id="inputClienteDeuda">
+      <div class="mb-3">
+        <label class="block text-sm font-medium">Monto Total</label>
+        <input type="number" name="deuda_total" class="w-full border px-3 py-2 rounded-md" required>
+      </div>
+      <div class="mb-3">
+        <label class="block text-sm font-medium">Fecha</label>
+        <input type="date" name="fecha" class="w-full border px-3 py-2 rounded-md" required>
+      </div>
+      <div class="mb-3">
+        <label class="block text-sm font-medium">Descripción</label>
+        <textarea name="descripcion" class="w-full border px-3 py-2 rounded-md"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="block text-sm font-medium">Plazo (meses)</label>
+        <input type="integer" name="plazo" class="w-full border px-3 py-2 rounded-md">
+      </div>
+      <div class="mb-3">
+        <label class="block text-sm font-medium">Interés</label>
+        <input type="number" step="0.01" name="interes" class="w-full border px-3 py-2 rounded-md">
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="cerrarModal('modalDeuda')"
+          class="bg-gray-300 px-4 py-2 rounded-md">Cancelar</button>
+        <button type="submit" class="bg-yellow-600 text-white px-4 py-2 rounded-md">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal para Pagar Deuda -->
+<div id="modalPago" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+    <h2 class="text-lg font-bold mb-4">Pagar Deuda</h2>
+    <form method="POST" action="{{ url_for('pagar_deuda') }}">
+      <input type="hidden" name="cliente_id" id="inputClientePago">
+      
+      <!-- Campo: Deuda Total Actual -->
+      <div class="mb-4">
+        <label for="montoDeuda" class="block text-sm font-medium text-gray-700">Deuda Total</label>
+        <input type="text" id="montoDeuda" readonly
+          class="mt-1 block w-full rounded-md border border-gray-300 bg-gray-100 shadow-sm px-3 py-2">
+      </div>
+
+      <!-- Campo: Monto de Abono -->
+      <div class="mb-3">
+        <label class="block text-sm font-medium">Monto del Abono</label>
+        <input type="number" step="0.01" name="abono" class="w-full border px-3 py-2 rounded-md" required>
+      </div>
+
+      <!-- Campo: Fecha de Pago -->
+      <div class="mb-3">
+        <label class="block text-sm font-medium">Fecha de Pago</label>
+        <input type="datetime-local" name="fecha_pago" class="w-full border px-3 py-2 rounded-md">
+      </div>
+
+      <!-- Campo: Fecha Próximo Pago Estimado -->
+      <div class="mb-3">
+        <label for="proximoPago" class="block text-sm font-medium text-gray-700">Fecha Próximo Pago</label>
+        <input type="text" id="proximoPago" readonly
+          class="mt-1 block w-full rounded-md border border-gray-300 bg-gray-100 shadow-sm px-3 py-2">
+      </div>
+
+      <!-- Campo: Interés por Mora Manual (opcional) -->
+      <div class="mb-3">
+        <label class="block text-sm font-medium">Interés por Mora (%)</label>
+        <input type="number" step="0.01" name="interes_mora_manual"
+          class="w-full border px-3 py-2 rounded-md" placeholder="Ej: 5 (Opcional)">
+      </div>
+
+      <!-- Casilla: Liquidar Deuda -->
+      <div class="mb-3">
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="finalizado" class="form-checkbox">
+          <span class="ml-2">Marcar deuda como liquidada</span>
+        </label>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="cerrarModal('modalPago')"
+          class="bg-gray-300 px-4 py-2 rounded-md">Cancelar</button>
+        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- JavaScript para búsqueda en tiempo real -->
+<script>
+  document.getElementById("busquedaCuenta").addEventListener("input", function () {
+    const query = this.value;
+
+    fetch(`/buscar_clientes?contrato=${query}`)
+      .then(response => response.json())
+      .then(data => {
+        const tabla = document.getElementById("tablaClientes");
+        tabla.innerHTML = "";
+
+        if (data.length === 0) {
+          tabla.innerHTML = "<tr><td colspan='6' class='text-center py-4'>No se encontraron resultados</td></tr>";
+          return;
+        }
+
+        data.forEach(cliente => {
+          // Aquí recibimos el valor de deuda desde el servidor
+          const deudaTotal = cliente.deuda || 0;  // Si no hay deuda, toma 0
+          const fecha = cliente.deuda_fecha || "";  // Asume que la fecha es parte de la respuesta si la manejas
+          const fechaVencimiento = cliente.deuda_vencimiento || "";
+          const pagosRelacionLength = cliente.deuda_pagos || 0;  // Longitud de pagos relacionados
+          // Crear la fila principal
+          const fila = document.createElement('tr');
+          fila.className = "hover:bg-gray-50 transition";
+
+          // Contenido básico de la fila
+          fila.innerHTML = `
+          <td class="px-6 py-4 text-sm text-gray-800">${cliente.name}</td>
+          <td class="px-6 py-4 text-sm text-gray-800">${cliente.cedula}</td>
+          <td class="px-6 py-4 text-sm text-gray-800">${cliente.correo}</td>
+          <td class="px-6 py-4 text-sm text-gray-800">${cliente.contrato}</td>
+          <td class="px-6 py-4 text-sm text-gray-800">${cliente.numero_cuenta}</td>
+          <td class="px-6 py-4 text-center">
+            <a href="/ver_documento/${cliente.id}"
+              class="inline-block text-white bg-blue-600 hover:bg-blue-700 font-medium rounded-md text-sm px-4 py-2 transition duration-200">
+              Ver documentos
+            </a>
+          </td>
+          <td class="px-6 py-4 text-center">
+            <div class="flex flex-wrap justify-center gap-2">
+              ${deudaTotal > 0 ? `
+                    <button onclick="abrirModalPago(${cliente.id}, ${deudaTotal}, '${fecha}', '${fechaVencimiento}', ${pagosRelacionLength})"
+                      class="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-md shadow-sm transition duration-200">
+                      Pagar Deuda
+                    </button>` : ''}
+              <button onclick="abrirModalDeuda(${cliente.id})"
+                class="bg-yellow-600 hover:bg-yellow-700 text-white text-sm px-4 py-2 rounded-md shadow-sm transition duration-200">
+                Agregar Deuda
+              </button>
+              <button type="button"
+                class="editar-btn bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-md shadow-sm transition duration-200"
+                data-id="${cliente.id}">
+                Editar
+              </button>
+              <a href="/eliminar_cliente/${cliente.id}"
+                class="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-md shadow-sm transition duration-200"
+                onclick="return confirm('¿Estás seguro de eliminar este cliente?')">
+                Eliminar
+              </a>
+            </div>
+          </td>
+        `;
+
+          tabla.appendChild(fila);
+
+          // Crear el modal de edición separadamente
+          if (!document.getElementById(`modalEditarCliente${cliente.id}`)) {
+            const modalHTML = `
+            <div class="modal fade" id="modalEditarCliente${cliente.id}" tabindex="-1"
+              aria-labelledby="modalEditarClienteLabel${cliente.id}" aria-hidden="true">
+              <div class="modal-dialog">
+                <form method="POST" action="/editar_cliente/${cliente.id}" enctype="multipart/form-data">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title" id="modalEditarClienteLabel${cliente.id}">Editar Cliente</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                      <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" name="name" value="${cliente.name}" required>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Cédula</label>
+                        <input type="text" class="form-control" name="cedula" value="${cliente.cedula}" required>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">PDF con cédula y papel de votación</label>
+                        <input type="file" class="form-control" name="archivo" accept="application/pdf">
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Número de Cuenta</label>
+                        <input type="text" class="form-control" name="numero_cuenta" value="${cliente.numero_cuenta}" readonly required>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Número de Contrato</label>
+                        <input type="text" class="form-control" name="numero_cuenta" value="${cliente.contrato}" readonly required>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Correo</label>
+                        <input type="email" class="form-control" name="correo" value="${cliente.correo}" required>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" name="telefono" value="${cliente.telefono || ''}">
+                      </div>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                      <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          `;
+
+            // Agregar el modal al body
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHTML;
+            document.body.appendChild(modalContainer.firstElementChild);
+
+            // Inicializar el modal de Bootstrap
+            new bootstrap.Modal(document.getElementById(`modalEditarCliente${cliente.id}`));
+          }
+        });
+
+        // Agregar event listeners a los botones de editar
+        document.querySelectorAll('.editar-btn').forEach(btn => {
+          btn.addEventListener('click', function () {
+            const clienteId = this.getAttribute('data-id');
+            const modalId = `modalEditarCliente${clienteId}`;
+            const modalElement = document.getElementById(modalId);
+
+            if (modalElement) {
+              const modalInstance = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+              modalInstance.show();
+            }
+          });
+        });
+      })
+      .catch(error => {
+        console.error('Error al buscar clientes:', error);
+      });
+  });
+
+  // Mantén las funciones existentes para los demás modales
+  function abrirModalDeuda(clienteId) {
+    document.getElementById("inputClienteDeuda").value = clienteId;
+    document.getElementById("modalDeuda").classList.remove("hidden");
+    document.getElementById("modalDeuda").classList.add("flex");
+  }
+
+ 
+ function abrirModalPago(clienteId, deudaTotal, fechaInicio, fechaVencimiento, Npagos) {
+    console.log(Npagos)
+    console.log(fechaInicio)
+
+    document.getElementById("inputClientePago").value = clienteId;
+    document.getElementById("montoDeuda").value = `$${parseFloat(deudaTotal).toFixed(2)}`;
+
+    document.getElementById("modalPago").classList.remove("hidden");
+    document.getElementById("modalPago").classList.add("flex");
+
+    Npagos = Npagos + 1; // siguiente pago
+
+    // Calcular próxima fecha de pago
+    if (fechaInicio && Npagos) {
+        const fechaBase = new Date(fechaInicio);
+
+        // Sumar meses (uno por cada pago realizado)
+        fechaBase.setMonth(fechaBase.getMonth() + Npagos);
+
+        // Dar formato YYYY-MM-DD
+        const siguientePago = fechaBase.toISOString().split('T')[0];
+
+        // Comparar contra fecha de vencimiento
+        const fechaVenc = new Date(fechaVencimiento);
+
+        if (fechaBase > fechaVenc) {
+            document.getElementById("proximoPago").value = "Pagos finalizados";
+        } else {
+            document.getElementById("proximoPago").value = siguientePago;
+        }
+    } else {
+        document.getElementById("proximoPago").value = "No disponible";
+    }
+  }
+
+  const clientePagoId = new URLSearchParams(window.location.search).get("pagar_cliente");
+  if (clientePagoId) {
+    const botonPago = document.getElementById(`btnPagarDeuda-${clientePagoId}`);
+    if (botonPago) botonPago.click();
+  }
+
+  function cerrarModal(id) {
+    const modal = document.getElementById(id);
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+  }
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(function () {
+      // Seleccionamos todos los elementos con la clase 'alert' que son los mensajes flash
+      const flashMessages = document.querySelectorAll('.alert');
+
+      // Ocultamos los mensajes después de 10 segundos (10,000 milisegundos)
+      flashMessages.forEach(function (msg) {
+        msg.style.transition = "opacity 1s ease-out"; // Añadimos una animación de desvanecimiento
+        msg.style.opacity = 0; // Hacemos que el mensaje se desvanezca
+      });
+
+      // Después de 1 segundo, eliminamos el mensaje del DOM
+      setTimeout(function () {
+        flashMessages.forEach(function (msg) {
+          msg.remove(); // Eliminar completamente el mensaje del DOM
+        });
+      }, 1000); // Elimina el mensaje después de 1 segundo (para que se vea la animación)
+    }, 10000); // 10 segundos en milisegundos (10000)
+  });
+</script>
+
+{% endblock %}
