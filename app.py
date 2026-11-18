@@ -53,7 +53,7 @@ def registrar_actividad(accion, descripcion):
 @app.template_filter('tiempo_relativo')
 def tiempo_relativo(fecha):
     
-    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')  # En algunos sistemas puede ser 'es_ES' o 'es_EC'
+    locale.setlocale(locale.LC_TIME, 'es_ES')  # En algunos sistemas puede ser 'es_ES' o 'es_EC'
     humanize.i18n.activate('es')
     hora_local = datetime.now(zona_horaria)
 
